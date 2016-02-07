@@ -1,5 +1,6 @@
 package view;
 
+import com.sun.mail.util.MailConnectException;
 import controller.CustomOutputStream;
 import model.UserInfo;
 
@@ -33,7 +34,7 @@ public class MemoFrame extends JFrame implements ActionListener {
         Toolkit   toolkit   = Toolkit.getDefaultToolkit();
         Dimension dimension = new Dimension(toolkit.getScreenSize());
 
-        userInfo = new UserInfo("pop.gmail.com", "uran230@gmail.com", "", "pop3");
+        userInfo = new UserInfo("pop.gmail.com", "uran230@gmail.com", "Xm881xRm3", "pop3");
 
         infoArea.setEditable(false);
         performBtn.addActionListener(this);
@@ -45,12 +46,16 @@ public class MemoFrame extends JFrame implements ActionListener {
         infoPanel.add(scrollPane, BorderLayout.CENTER);
         infoPanel.add(functionalPanel, BorderLayout.SOUTH);
 
-        this.setLocation(dimension.width / 15, dimension.height / 5);
+        this.setLocation((dimension.width / 8) * 3, dimension.height / 5);
         this.setSize(dimension.width / 4, dimension.height / 2);
         this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         this.getConnection();
         this.add(infoPanel);
         this.setVisible(true);
+    }
+
+    private void getAuthification() {
+        infoArea.append("");
     }
 
     private void getConnection() {
@@ -125,12 +130,22 @@ public class MemoFrame extends JFrame implements ActionListener {
 
     public void retrieveMsg(int number) {
         infoArea.append("RETR\n");
-        PrintStream printStream = new PrintStream(new CustomOutputStream(infoArea));
         try {
-            messages[number].writeTo(printStream);
-        } catch (IOException | MessagingException e) {
-            infoArea.append("-ERR something wrong with retrieving message\n");
-            e.printStackTrace();
+            infoArea.append("Message " + number + "\n");
+            infoArea.append("From : " + messages[number].getFrom()[0] + "\n");
+            infoArea.append("Subject : " + messages[number].getSubject() + "\n");
+            infoArea.append("Sent Date : " + messages[number].getSentDate() + "\n");
+            Object content = messages[number].getContent();
+            if (content instanceof String) {
+                String body = (String) content;
+                infoArea.append("Text : " + body + "\n");
+            }
+            infoArea.append("\n");
+        } catch (MessagingException ex) {
+            infoArea.append("-ERR something wrong with retrieving messages");
+            ex.printStackTrace();
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
     }
 
@@ -151,7 +166,7 @@ public class MemoFrame extends JFrame implements ActionListener {
 
     public void showHelp() {
         infoArea.append("HELP\n");
-        infoArea.append("LIST, STAT, DELE, RETR, NOOP, QUIT\n");
+        infoArea.append("USER, PASS, LIST, STAT, DELE, RETR, NOOP, QUIT\n");
     }
 
     public int getInboxSize() {
@@ -164,7 +179,6 @@ public class MemoFrame extends JFrame implements ActionListener {
                 e.printStackTrace();
             }
         }
-        //inboxSize /= 8;
         return inboxSize;
     }
 
