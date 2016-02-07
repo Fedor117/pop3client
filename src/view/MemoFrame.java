@@ -1,32 +1,29 @@
 package view;
 
-import com.sun.mail.util.MailConnectException;
-import controller.CustomOutputStream;
 import model.UserInfo;
+import org.jsoup.Jsoup;
 
 import javax.mail.*;
+import javax.mail.internet.MimeMultipart;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
-import java.io.PrintStream;
 import java.util.Properties;
 
 public class MemoFrame extends JFrame implements ActionListener {
 
-    private JPanel      infoPanel = new JPanel();
-    private JPanel      functionalPanel = new JPanel();
-    private JTextArea   infoArea = new JTextArea();
-    private JScrollPane scrollPane = new JScrollPane(infoArea);
-    private JTextField  commandField = new JTextField(15);
-    private JButton     performBtn = new JButton("Perform");
-    private Properties  props = new Properties();
-    private Session     session;
-    private UserInfo    userInfo;
-    private Message[]   messages;
-    private Store       store;
-    private Folder      inbox;
+    private JPanel         infoPanel          = new JPanel();
+    private JPanel         functionalPanel    = new JPanel();
+    private JTextArea      infoArea           = new JTextArea();
+    private JScrollPane    scrollPane         = new JScrollPane(infoArea);
+    private JTextField     commandField       = new JTextField(15);
+    private JButton        performBtn         = new JButton("Perform");
+    private Properties     props              = new Properties();
+    private UserInfo       userInfo;
+    private Message[]      messages;
+    private Store          store;
+    private Folder         inbox;
 
     public MemoFrame() {
         super("Pop3 Client. Memo frame");
@@ -54,10 +51,6 @@ public class MemoFrame extends JFrame implements ActionListener {
         this.setVisible(true);
     }
 
-    private void getAuthification() {
-        infoArea.append("");
-    }
-
     private void getConnection() {
         props.put("mail.host", "pop.gmail.com");
         props.put("mail.store.protocol", "pop3s");
@@ -65,7 +58,7 @@ public class MemoFrame extends JFrame implements ActionListener {
         props.put("mail.pop3s.port", "995");
 
         try {
-            session = Session.getInstance(props);
+            Session session = Session.getInstance(props);
             store = session.getStore();
             store.connect(userInfo.getLogin(), userInfo.getPassword());
 
@@ -94,6 +87,14 @@ public class MemoFrame extends JFrame implements ActionListener {
         } catch (Exception e) {
             System.out.println("Nimbus is not available");
         }
+    }
+    
+    private void getAuthorisation() {
+        
+    }
+
+    private void getPassword() {
+        
     }
 
     public void getList() {
@@ -131,36 +132,52 @@ public class MemoFrame extends JFrame implements ActionListener {
     public void retrieveMsg(int number) {
         infoArea.append("RETR\n");
         try {
+            String textFromMessage = null;
+            try {
+                textFromMessage = this.getTextFromMessage(messages[number]);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             infoArea.append("Message " + number + "\n");
             infoArea.append("From : " + messages[number].getFrom()[0] + "\n");
             infoArea.append("Subject : " + messages[number].getSubject() + "\n");
             infoArea.append("Sent Date : " + messages[number].getSentDate() + "\n");
-            Object content = messages[number].getContent();
-            if (content instanceof String) {
-                String body = (String) content;
-                infoArea.append("Text : " + body + "\n");
-            }
-            infoArea.append("\n");
+            infoArea.append("Text : " + textFromMessage + "\n");
+            infoArea.append("--- END OF MESSAGE ---");
         } catch (MessagingException ex) {
             infoArea.append("-ERR something wrong with retrieving messages");
-            ex.printStackTrace();
-        } catch (IOException ex) {
             ex.printStackTrace();
         }
     }
 
+    private String getTextFromMessage(Message message) throws Exception {
+        if (message.isMimeType("text/plain")){
+            return message.getContent().toString();
+        }else if (message.isMimeType("multipart/*")) {
+            String result = "";
+            MimeMultipart mimeMultipart = (MimeMultipart)message.getContent();
+            int count = mimeMultipart.getCount();
+            for (int i = 0; i < count; i ++){
+                BodyPart bodyPart = mimeMultipart.getBodyPart(i);
+                if (bodyPart.isMimeType("text/plain")){
+                    result = result + "\n" + bodyPart.getContent();
+                    break;
+                } else if (bodyPart.isMimeType("text/html")){
+                    String html = (String) bodyPart.getContent();
+                    result = result + "\n" + Jsoup.parse(html).text();
+                }
+            }
+            return result;
+        }
+        return "";
+    }
+
     public void testConnection() {
         infoArea.append("NOOP\n");
-        try {
-            Boolean isConnected = session.getTransport().isConnected();
-            if (isConnected) {
-                infoArea.append("+OK connection is stable\n");
-            } else {
-                infoArea.append("-ERR connection is lost\n");
-            }
-        } catch (NoSuchProviderException e) {
-            infoArea.append("-ERR something wrong with connection\n");
-            e.printStackTrace();
+        if (store.isConnected()) {
+            infoArea.append("+OK connection is active\n");
+        } else {
+            infoArea.append("-ERR connection lost\n");
         }
     }
 
@@ -186,6 +203,12 @@ public class MemoFrame extends JFrame implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == performBtn) {
             switch (commandField.getText().toUpperCase()) {
+                case "USER": // TODO crydev: Authorisation functionality
+                    getAuthorisation(); 
+                    break;
+                case "PASS": // TODO crydev: Password reading functionality
+                    getPassword();
+                    break;
                 case "LIST":
                     getList();
                     break;
@@ -193,10 +216,10 @@ public class MemoFrame extends JFrame implements ActionListener {
                     getStatistic();
                     break;
                 case "DELE": // TODO crydev: Delete message functionality
-                    deleteMsg(1);
+                    deleteMsg(1); // FIXME: 07.02.2016 
                     break;
                 case "RETR": // TODO crydev: Retrieve message functionality
-                    retrieveMsg(1);
+                    retrieveMsg(1); // FIXME: 07.02.2016 
                     break;
                 case "NOOP":
                     testConnection();
