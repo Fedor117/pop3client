@@ -10,6 +10,8 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MemoFrame extends JFrame implements ActionListener {
 
@@ -103,12 +105,13 @@ public class MemoFrame extends JFrame implements ActionListener {
     }
 
     public void closeConnection() {
-        infoArea.append("CLOSE");
+        infoArea.append("QUIT\n");
         try {
             inbox.close(true);
             store.close();
             infoArea.append("+OK connection closed\n");
         } catch (MessagingException e) {
+            infoArea.append("-ERR something gone wrong\n");
             e.printStackTrace();
         }
     }
@@ -143,9 +146,9 @@ public class MemoFrame extends JFrame implements ActionListener {
             infoArea.append("Subject : " + messages[number].getSubject() + "\n");
             infoArea.append("Sent Date : " + messages[number].getSentDate() + "\n");
             infoArea.append("Text : " + textFromMessage + "\n");
-            infoArea.append("--- END OF MESSAGE ---");
+            infoArea.append("--- END OF MESSAGE ---\n");
         } catch (MessagingException ex) {
-            infoArea.append("-ERR something wrong with retrieving messages");
+            infoArea.append("-ERR something wrong with retrieving messages\n");
             ex.printStackTrace();
         }
     }
@@ -202,7 +205,21 @@ public class MemoFrame extends JFrame implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == performBtn) {
-            switch (commandField.getText().toUpperCase()) {
+            String  commandPart = commandField.getText().toUpperCase();
+            Integer numberOfMessage = 1;
+
+            Pattern pattern = Pattern.compile("\\s");
+            Matcher matcher = pattern.matcher(commandPart);
+            Boolean found = matcher.find();
+
+            if (found) {
+                String[] parts = commandPart.split("\\s");
+                commandPart         = parts[0];
+                String variablePart = parts[1];
+                numberOfMessage = Integer.parseInt(variablePart);
+            }
+
+            switch (commandPart) {
                 case "USER": // TODO crydev: Authorisation functionality
                     getAuthorisation(); 
                     break;
@@ -215,11 +232,11 @@ public class MemoFrame extends JFrame implements ActionListener {
                 case "STAT":
                     getStatistic();
                     break;
-                case "DELE": // TODO crydev: Delete message functionality
-                    deleteMsg(1); // FIXME: 07.02.2016 
+                case "DELE":
+                    deleteMsg(numberOfMessage);
                     break;
-                case "RETR": // TODO crydev: Retrieve message functionality
-                    retrieveMsg(1); // FIXME: 07.02.2016 
+                case "RETR":
+                    retrieveMsg(numberOfMessage);
                     break;
                 case "NOOP":
                     testConnection();
@@ -231,7 +248,7 @@ public class MemoFrame extends JFrame implements ActionListener {
                     closeConnection();
                     break;
                 default:
-                    infoArea.append("-ERR no such command\n");
+                    infoArea.append("-ERR \"" + commandPart + "\" no such command\n");
             }
         }
     }
