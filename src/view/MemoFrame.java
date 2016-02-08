@@ -4,6 +4,8 @@ import model.UserInfo;
 import org.jsoup.Jsoup;
 
 import javax.mail.*;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMultipart;
 import javax.swing.*;
 import java.awt.*;
@@ -23,17 +25,17 @@ public class MemoFrame extends JFrame implements ActionListener {
     private JButton        performBtn         = new JButton("Perform");
     private Properties     props              = new Properties();
     private UserInfo       userInfo;
+    private Boolean        isConnected;
     private Message[]      messages;
     private Store          store;
     private Folder         inbox;
 
     public MemoFrame() {
         super("Pop3 Client. Memo frame");
-        this.getSwag();
         Toolkit   toolkit   = Toolkit.getDefaultToolkit();
         Dimension dimension = new Dimension(toolkit.getScreenSize());
 
-        userInfo = new UserInfo("pop.gmail.com", "uran230@gmail.com", "Xm881xRm3", "pop3");
+        userInfo = new UserInfo("pop.gmail.com", "", "", "pop3");
 
         infoArea.setEditable(false);
         performBtn.addActionListener(this);
@@ -45,11 +47,12 @@ public class MemoFrame extends JFrame implements ActionListener {
         infoPanel.add(scrollPane, BorderLayout.CENTER);
         infoPanel.add(functionalPanel, BorderLayout.SOUTH);
 
+        this.getSwag();
         this.setLocation((dimension.width / 8) * 3, dimension.height / 5);
         this.setSize(dimension.width / 4, dimension.height / 2);
         this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        this.getConnection();
         this.add(infoPanel);
+        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.setVisible(true);
     }
 
@@ -63,18 +66,21 @@ public class MemoFrame extends JFrame implements ActionListener {
             Session session = Session.getInstance(props);
             store = session.getStore();
             store.connect(userInfo.getLogin(), userInfo.getPassword());
-
             inbox = store.getFolder("INBOX");
+
             if (inbox == null) {
                 System.out.println("No INBOX");
                 System.exit(1);
             }
             inbox.open(Folder.READ_WRITE);
-
             messages = inbox.getMessages();
-            getList();
+            isConnected = true;
+
+            infoArea.append("+OK " + userInfo.getLogin() + "'s maildrop has " + messages.length
+                    + " messages (" + getInboxSize() + ") octets\n");
         } catch (Exception ex) {
             ex.printStackTrace();
+            infoArea.append("-ERR cannot get inbox messages\n");
         }
     }
 
@@ -91,12 +97,21 @@ public class MemoFrame extends JFrame implements ActionListener {
         }
     }
     
-    private void getAuthorisation() {
-        
+    private void getAuthorisation(String login) {
+        infoArea.append("USER\n");
+        userInfo.setLogin(login);
+        Boolean isValid = crunchyEmailValidator(login);
+        if (isValid) {
+            infoArea.append("+OK " + login + " is a real hoopy frood\n");
+        } else {
+            infoArea.append("-ERR check email address\n");
+        }
     }
 
-    private void getPassword() {
-        
+    private void getPassword(String password) {
+        infoArea.append("PASS\n");
+        userInfo.setPassword(password);
+        getConnection();
     }
 
     public void getList() {
@@ -109,6 +124,7 @@ public class MemoFrame extends JFrame implements ActionListener {
         try {
             inbox.close(true);
             store.close();
+            isConnected = false;
             infoArea.append("+OK connection closed\n");
         } catch (MessagingException e) {
             infoArea.append("-ERR something gone wrong\n");
@@ -202,10 +218,23 @@ public class MemoFrame extends JFrame implements ActionListener {
         return inboxSize;
     }
 
+    private boolean crunchyEmailValidator(String email) {
+        boolean isValid = false;
+        try {
+            InternetAddress internetAddress = new InternetAddress(email);
+            internetAddress.validate();
+            isValid = true;
+        } catch (AddressException e) {
+            System.out.println("You are in catch block -- Exception Occurred for: " + email);
+        }
+        return isValid;
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == performBtn) {
-            String  commandPart = commandField.getText().toUpperCase();
+            String  commandPart = commandField.getText();
+            String  variablePart = null;
             Integer numberOfMessage = 1;
 
             Pattern pattern = Pattern.compile("\\s");
@@ -214,17 +243,21 @@ public class MemoFrame extends JFrame implements ActionListener {
 
             if (found) {
                 String[] parts = commandPart.split("\\s");
-                commandPart         = parts[0];
-                String variablePart = parts[1];
-                numberOfMessage = Integer.parseInt(variablePart);
+                commandPart = parts[0];
+                variablePart = parts[1];
+                try {
+                    numberOfMessage = Integer.parseInt(variablePart);
+                } catch (NumberFormatException ex) {
+                    ex.printStackTrace();
+                }
             }
 
-            switch (commandPart) {
-                case "USER": // TODO crydev: Authorisation functionality
-                    getAuthorisation(); 
+            switch (commandPart.toUpperCase()) {
+                case "USER":
+                    getAuthorisation(variablePart);
                     break;
-                case "PASS": // TODO crydev: Password reading functionality
-                    getPassword();
+                case "PASS":
+                    getPassword(variablePart);
                     break;
                 case "LIST":
                     getList();
